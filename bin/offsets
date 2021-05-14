@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+from argparse import ArgumentParser
+import os
+import sys
+
+from astropy.io import fits
+import numpy as np
+import pandas as pd
+
+sys.path.append("/mnt/sdata01/mlucas/wind_speed/anemometer")
+
+# set up arg parser
+parser = ArgumentParser("calculate translations between wavefront sensor frames")
+parser.add_argument(
+    "path",
+    type=str,
+    help="path to wavefront sensor FITS cube. If loading data, this should be directory containing the calculated offsets (the output directory from previous runs).",
+)
+parser.add_argument(
+    "-N",
+    default=400,
+    help="Length of window",
+    type=int
+)
+parser.add_argument(
+    "-d",
+    "--directory",
+    help="directory to save outputs, will default to the parent directory of the input file",
+)
+parser.add_argument(
+    "-l",
+    "--load",
+    help="load offsets from the given path instead of calculating them",
+    action="store_true",
+)
+parser.add_argument(
+    "-r",
+    "--rate",
+    help="rate of acquisition (Hz)",
+    type=int
+)
+parser.add_argument("-f", "--filter",
+action="store_true", help="manually filter first 7 Zernike modes")
+parser.add_argument("-s", "--smooth",
+action="store_true", help="manually smooth with Gaussian filter")
+
+
+def save_offsets(dir, df):
+    df.to_csv(os.path.join(dir, "offsets.csv"))
+    logger.info(f"saved offsets to '{dir}'")
+
+
+def load_offsets(dir):
+    df = pd.from_csv(os.path.join(dir, "offsets.csv"))
+    logger.info(f"loaded offsets from '{dir}'")
+    return df[["dx", "dy", "dr", "dtheta"]]
+
+def get_mask():
+    logger.info("loading DM mask from `aol0_dmmask` and `aol0_dmslaved`")
+    m1 = fits.getdata("data/dmmask_2021-03-19_01:33:34.fits")
+    m2 = fits.getdata("data/dmslaved_2021-03-19_01:33:34.fits")
+    return m1.astype(bool) ^ m2.astype(bool) # xor
+
+
+def filter_modes(cube):
+    # lwe_path = os.path.join(configdir("mkmodestmp"), "fmodes1_05.fits")
+    lwe_path = os.path.join(configdir("mkmodestmp"), "fmodes0all.fits")
+    lwe_indices = range(7)
+    logger.info(f"removing {len(lwe_indices)} modes from {lwe_path}")
+    lwe_fullframes = fits.getdata(lwe_path)[lwe_indices]
+    lwe_frames = lwe_fullframes.reshape(-1, 50**2).T
+    flat_full_frames = cube.reshape(-1, 50**2).T
+    lwe_coeffs, _, _, _ = np.linalg.lstsq(lwe_frames, flat_full_frames, rcond=None)
+    lwe_recon = np.reshape(lwe_coeffs.T @ lwe_frames.T, cube.shape)
+    return cube - lwe_recon
+
+def gaussian_filter(cube, N):
+    kernel_size = (1, 3, 3)
+    logger.info(f"smoothing cube with Gaussian filter with size {kernel_size}")
+    return cube - ndimage.gaussian_filter(cube, kernel_size)
+
+if __name__ == "__main__":
+    # parse args
+    args = parser.parse_args()
+    path = args.path
+    if args.directory is None:
+        dir = os.path.dirname(os.path.abspath(path))
+    else:
+        dir = os.path.abspath(args.directory)
+
+    os.makedirs(dir, exist_ok=True)
+    logger.debug(f"path: {path}")
+    logger.debug(f"output dir: {dir}")
+
+    if args.load:
+        offsets = load_offsets(path)
+        plot_offsets(path, offsets, args.N / args.rate)
+    else:
+        # load data and process
+        cube = fits.getdata(path)
+        logger.info(f"loaded FITS cube of size {cube.shape} from '{path}'")
+        if args.filter:
+            cube = filter_modes(cube)
+        if args.smooth:
+            cube = gaussian_filter(cube, args.N)
+        logger.info("subtracting median from cube")
+        cube -= np.median(cube, axis=0)
+        # cube = np.array([cube[i:i + args.N].sum(0) for i in range(cube.shape[0] - args.N)])
+        mask = get_mask()
+        fits.writeto(os.path.join(dir, "cube.fits"), cube * mask, overwrite=True)
+        corrs, offsets = cube_offsets(cube, mask, args.rate, args.N)
+        fits.writeto(os.path.join(dir, "corrs.fits"), corrs, overwrite=True)
+        save_offsets(dir, pd.DataFrame(offsets, columns=["dx", "dy", "dr", "dtheta"]))
+        plot_offsets(dir, offsets, args.N / args.rate)
