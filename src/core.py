@@ -26,9 +26,6 @@ def rootdir(*tokens):
 def datadir(*tokens):
     rootdir("data", *tokens)
 
-def plotsdir(*tokens):
-    rootdir("figures", *tokens)
-
 # make sure local directories exist
 [os.makedirs(p, exist_ok=True) for p in [datadir(), plotsdir()]]
 
