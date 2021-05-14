@@ -1,0 +1,74 @@
+\documentclass[modern]{aastex63}
+
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\let\tablenum\relax
+\usepackage{siunitx}
+
+\newcommand{\vdag}{(v)^\dagger}
+\newcommand\aastex{AAS\TeX}
+\newcommand\latex{La\TeX}
+
+\usepackage{todonotes}
+
+\DeclareSIUnit\pixel{px}
+
+% \received{June 1, 2019}
+% \revised{January 10, 2019}
+% \accepted{\today}
+% \submitjournal{AJ}
+
+\shorttitle{Measuring Wind Speed in DM Space on SCExAO}
+\shortauthors{Lucas et al.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\graphicspath{{./}{figures/}}
+
+\begin{document}
+
+\title{Measuring Wind Speed in DM Space on Subaru Coronagraphic Extreme Adaptive Optics Instrument (SCExAO)}
+
+\author[0000-0001-6341-310X]{Miles Lucas}
+\affiliation{Institute for Astronomy, University of Hawai'i \\
+2680 Woodlawn Dr, Honolulu, HI 96822, USA}
+
+\author{Michael Bottom}
+\affiliation{Institute for Astronomy, University of Hawai'i \\
+640 North A‘ohōkū Place Hilo, HI 96720, USA}
+
+\author{Olivier Guyon}
+\affiliation{Subaru Telescope, National Astronomical Observatory of Japan \\ 
+650 North A‘ohōkū Place, Hilo, HI 96720, USA}
+\affiliation{Steward Observatory, University of Arizona \\
+Tucson, AZ 85721, USA}
+
+\author{Vincent Deo}
+\affiliation{Subaru Telescope, National Astronomical Observatory of Japan \\ 
+650 North A‘ohōkū Place, Hilo, HI 96720, USA}
+
+\begin{abstract}
+
+\end{abstract}
+
+\keywords{}
+
+\input{sections/introduction}
+\input{sections/methods}
+\input{sections/results}
+\input{sections/conclusions}
+
+\software{
+astropy \citep{2013A&A...558A..33A,2018AJ....156..123A},
+numpy \citep{harris2020array},
+scikit-image \citep{2014arXiv1407.6245V},
+}
+
+\bibliography{references}{}
+\bibliographystyle{aasjournal}
+
+\appendix
+
+\end{document}
