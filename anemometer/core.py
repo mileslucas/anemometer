@@ -5,6 +5,7 @@ import logging
 
 from astropy.io import fits
 import numpy as np
+from scipy import ndimage
 from skimage.registration._masked_phase_cross_correlation import cross_correlate_masked
 import tqdm
 
@@ -62,12 +63,17 @@ def calculate_offsets(previous, current, mask, dt):
     dr = np.hypot(dx, dy)
     theta = np.mod(np.rad2deg(np.arctan2(dy, dx)), 360)
     offsets = np.array([dx, dy, dr, theta])
-    return np.real(cross_corr), offsets
+    xy_err = 0.5 * PLATESCALE / dt
+    r_err = np.sqrt(2) * xy_err
+    theta_err = np.rad2deg(xy_err / r_err)
+    errors = np.array([xy_err, xy_err, r_err, theta_err])
+    return np.real(cross_corr), offsets, errors
 
 
 def cube_offsets(cube, mask, rate, N):
     """Calculate offsets between frames for an entire cube"""
     offsets = np.empty((cube.shape[0] - N, 4))
+    errors = np.copy(offsets)
     corr_shape = cube.shape[1] * 2 - 1
     corrs = np.empty((cube.shape[0] - N, corr_shape, corr_shape))
     vmin, vmax = velocity_lims(rate, N)
@@ -77,11 +83,12 @@ def cube_offsets(cube, mask, rate, N):
     for i in tqdm.trange(offsets.shape[0], desc="calculating offsets"):
         previous = cube[i] 
         current = cube[i + N]
-        out = calculate_offsets(previous, current, mask, dt)
-        corrs[i] = out[0]
-        offsets[i] = out[1:]
+        corr, off, err = calculate_offsets(previous, current, mask, dt)
+        corrs[i] = corr
+        offsets[i] = off
+        errors[i] = err
 
-    return corrs, offsets
+    return corrs, offsets, errors
 
 
 def filter_zernike(cube, nz=7):
